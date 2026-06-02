@@ -1,0 +1,114 @@
+--CONTEXTO INICIAL--
+
+Idea inicial. Crear un CRM enfocada a la administracion de APIs, clientes y potenciales clientes para una empresa de servicios de automatizacion para pequeñas y medianas empresas.
+
+--TECNOLOGIAS--
+
+Backend:
+El backend tiene como lenguaje de programación REACT.
+
+Frontend:
+El frontend funcionara mediante llamadas https a la api de nuestro dominio (Todavina no definido asi que sera en local temporalmente). Esta intefaz estara creada principalmente con tailwind.
+
+Base de datos:
+La base de datos para el flujo de información será PostgreSQL.
+
+
+Relación de tablas:
+
+clientes n:m APIs_plantilla
+clientes n:m APIs_especificas
+posibles_clientes n:m APIs_plantilla
+facturas n:1 clientes
+contratos n:1 clientes
+
+tabla facturas:
+
+-id PK
+-nombre_empresa
+-url_factura
+-coste_facturacion
+-fecha
+-CIF_cliente FK - clientes: CIF
+
+tabla contratos:
+
+-id PK
+-nombre_empresa
+-url_contrato
+-fecha
+-CIF_cliente FK - clientes: CIF
+
+tabla clientes:
+
+-CIF varchar PK
+-nombre_empresa
+-telefono_contacto varchar
+-necesidades varchar
+-estado varchar
+-dirección varchar
+-tickets varchar
+-url_archivos_adjuntos varchar
+-facturas FK - facturas: id
+-contratos FK - contratos: id
+-id_API_plantilla FK - API_plantilla: id
+-id_API_especifica FK - API_especifica: id
+
+tabla posibles_clientes:
+
+-CIF varchar PK
+-nombre_empresa
+-telefono_contacto varchar
+-necesidades varchar
+-estado varchar
+-dirección varchar
+-tickets varchar
+-url_archivos_adjuntos varchar
+-id_API_plantilla varckar FK - API_plantilla: id
+
+tabla API_especifica:
+
+id varchar PK
+nombre vachar
+descripción varchar
+url varchar
+herramientas varchar
+id_cliente varchar FK - clientes: CIF
+
+tabla API_plantilla:
+
+id varchar PK
+nombre varchar
+descripción varchar
+url varchar
+id_cliente varchar FK - clientes: CIF
+id_posible_cliente varchar FK - posibles_clientes: CIF
+
+
+--ESTRUCTURA--
+
+El CRM se constituira de distintos modulos integrables. Esto quiere decir que cada vez que se quiera añadir una ventana o funcionalidad nueva se tendra que hacer de forma facil y modular, a su vez si ya no se requiere de ese modulo tendra que poder retirarse con la misma facilidad.
+
+Actualmente el CRM consta de 5 modulos mas la aplicación central:
+
+Pagina_inicial(Central): En esta pagina se tendrá que ver un chatbot 
+
+-Ventana Clientes. En este apartado se observara el listado de los clientes. Clicando en cualquier cliente se tendrá que poder ver todos sus datos y sus relaciones con las APIs que este usando ese cliente y las APIs plantilla que podría usar pero que no usa. Se tiene que poder filtrar por: CIF y Nombre de la empresa. 
+
+-Ventana Posibles_clientes. En este apartado se observara el listado de los posibles clientes. Clicando en cualquier posible cliente se tendrá que poder ver todos sus datos y sus relaciones con las APIs plantilla que podría usar pero que no usa. Se tiene que poder filtrar por: CIF y Nombre de la empresa.
+
+(Diferencia entre cliente y posible cliente. El cliente ya tiene un contrato firmado con nosotros, el posible cliente no ha firmado nada pero hemos contactado con el para evaluar sus requerimientos).
+
+
+-Ventana API especifica. En este apartado se tiene que poder ver todas las APIs que hayan sido diseñadas para un cliente. Cuando se clique en cualquiera de esas APIs se tendrán que poder ver listados todos los campos de la tabla. Las APIs especificas podrán ser filtradas por: id, nombre y herramientas(Las herramientas es un varchar con un conjunto de datos separados por un marcador especifico ej. ":" o ";").
+
+-Ventana API especifica. En este apartado se tiene que poder ver todas las APIs que hayan sido diseñadas como plantilla. Cuando se clique en cualquiera de esas APIs se tendrán que poder ver listados todos los campos de la tabla. Las APIs especificas podrán ser filtradas por: id, nombre.
+
+-Todos los modulos tendrán una barra de búsqueda. La forma de búsqueda se podrá hacer por el nombre de la empresa o el id, además para facilitar la búsqueda se hará un sistema de etiquetas donde se podrán filtrar los registros dependiendo de las etiquetas que tengan.
+Ej: Si quiero buscar un pryecto por una herramienta en concreto pondré en el buscador "#Spring_boot" y tendrán que salir todas las APIs que tengan la etiqueta #Spring_boot. 
+
+
+
+
+	
+	

@@ -1,0 +1,450 @@
+--CONTEXTO INICIAL--
+
+Idea inicial. Crear un CRM enfocado a la administración de APIs, clientes y potenciales clientes para una empresa de servicios de automatización para pequeñas y medianas empresas. El objetivo es organizar lo mejor posible desde un inicio todos los datos y poder gestionar de forma organizada todos los proyectos con una organizacion muy estructurada.
+
+El CRM deberá permitir gestionar:
+- Clientes
+- Posibles clientes
+- APIs específicas
+- APIs plantilla
+- Contratos
+- Facturas
+- Sistema de etiquetas (tags)
+- Búsquedas globales
+- Relaciones entre entidades
+
+Además, el sistema deberá ser modular y fácilmente ampliable.
+
+
+--TECNOLOGIAS--
+
+Backend:
+RUST.
+
+Frontend:
+El frontend funcionará mediante llamadas HTTPS a la API de nuestro dominio (todavía no definido, por lo que inicialmente funcionará en local). La interfaz estará desarrollada con TailwindCSS.
+
+Base de datos:
+PostgreSQL.
+
+
+--BASE DE DATOS--
+
+Relaciones principales:
+
+clientes n:m APIs_plantilla
+clientes n:m APIs_especificas
+posibles_clientes n:m APIs_plantilla
+incidencias n:1 clientes
+
+clientes 1:n facturas
+clientes 1:n contratos
+
+
+---------------------------------------------------
+TABLA USUARIOS
+---------------------------------------------------
+
+tabla usuarios:
+
+-usuario varchar PK
+-contrasenya varchar required
+-permisos
+-rol
+
+---------------------------------------------------
+TABLA FACTURAS
+---------------------------------------------------
+
+tabla facturas:
+
+-id PK
+-nombre_empresa varchar
+-url_factura varchar
+-coste_facturacion decimal
+-fecha date
+-CIF_cliente FK - clientes: CIF
+-created_at timestamp
+-updated_at timestamp
+
+
+---------------------------------------------------
+TABLA CONTRATOS
+---------------------------------------------------
+
+tabla contratos:
+
+-id PK
+-nombre_empresa varchar
+-url_contrato varchar
+-fecha date
+-CIF_cliente FK - clientes: CIF
+-created_at timestamp
+-updated_at timestamp
+
+---------------------------------------------------
+TABLA INCIDENCIAS
+---------------------------------------------------
+
+tabla incidencias:
+
+-id varchar PK
+-nombre_empresa varchar
+-titulo_incidencia varchar
+-descripcion_incidencia varchar
+-imagenes_incidencia varchar
+-id_cliente FK | clientes - CIF 
+
+---------------------------------------------------
+TABLA CLIENTES
+---------------------------------------------------
+
+tabla clientes:
+
+-CIF varchar PK
+-nombre_empresa varchar
+-telefono_contacto varchar
+-necesidades varchar
+-direccion varchar
+-url_archivos_adjuntos varchar
+-created_at timestamp
+-updated_at timestamp
+
+
+---------------------------------------------------
+TABLA POSIBLES_CLIENTES
+---------------------------------------------------
+
+tabla posibles_clientes:
+
+-CIF varchar PK
+-nombre_empresa varchar
+-telefono_contacto varchar
+-necesidades varchar
+-estado varchar
+-direccion varchar
+-tickets varchar
+-url_archivos_adjuntos varchar
+-created_at timestamp
+-updated_at timestamp
+
+
+---------------------------------------------------
+TABLA API_ESPECIFICA
+---------------------------------------------------
+
+tabla API_especifica:
+
+-id varchar PK
+-nombre varchar
+-descripcion varchar
+-url varchar
+-created_at timestamp
+-updated_at timestamp
+
+
+---------------------------------------------------
+TABLA API_PLANTILLA
+---------------------------------------------------
+
+tabla API_plantilla:
+
+-id varchar PK
+-nombre varchar
+-descripcion varchar
+-url varchar
+-created_at timestamp
+-updated_at timestamp
+
+
+---------------------------------------------------
+RELACIONES N:M
+---------------------------------------------------
+
+tabla clientes_APIs_plantilla:
+
+-CIF_cliente FK - clientes: CIF
+-id_API_plantilla FK - API_plantilla: id
+
+PK(CIF_cliente, id_API_plantilla)
+
+
+tabla clientes_APIs_especificas:
+
+-CIF_cliente FK - clientes: CIF
+-id_API_especifica FK - API_especifica: id
+
+PK(CIF_cliente, id_API_especifica)
+
+
+tabla posibles_clientes_APIs_plantilla:
+
+-CIF_posible_cliente FK - posibles_clientes: CIF
+-id_API_plantilla FK - API_plantilla: id
+
+PK(CIF_posible_cliente, id_API_plantilla)
+
+
+---------------------------------------------------
+SISTEMA DE TAGS
+---------------------------------------------------
+
+El CRM tendrá un sistema de etiquetas global reutilizable para permitir:
+- búsquedas avanzadas
+- filtros
+- clasificación
+- autocompletado
+- categorización de registros
+
+Las etiquetas podrán aplicarse a:
+- clientes
+- posibles clientes
+- APIs específicas
+- APIs plantilla
+
+Ejemplos de etiquetas:
+#Spring_boot
+#Docker
+#Webhook
+#IA
+#Automatizacion
+#Urgente
+
+
+---------------------------------------------------
+TABLA TAGS
+---------------------------------------------------
+
+tabla tags:
+
+-id PK
+-nombre varchar UNIQUE
+-tipo varchar
+-color varchar
+-created_at timestamp
+-updated_at timestamp
+
+
+---------------------------------------------------
+RELACION TAGS CLIENTES
+---------------------------------------------------
+
+tabla clientes_tags:
+
+-id_cliente FK - clientes: CIF
+-id_tag FK - tags: id
+
+PK(id_cliente, id_tag)
+
+
+---------------------------------------------------
+RELACION TAGS POSIBLES CLIENTES
+---------------------------------------------------
+
+tabla posibles_clientes_tags:
+
+-id_posible_cliente FK - posibles_clientes: CIF
+-id_tag FK - tags: id
+
+PK(id_posible_cliente, id_tag)
+
+
+---------------------------------------------------
+RELACION TAGS APIs ESPECIFICAS
+---------------------------------------------------
+
+tabla APIs_especificas_tags:
+
+-id_API_especifica FK - API_especifica: id
+-id_tag FK - tags: id
+
+PK(id_API_especifica, id_tag)
+
+
+---------------------------------------------------
+RELACION TAGS APIs PLANTILLA
+---------------------------------------------------
+
+tabla APIs_plantilla_tags:
+
+-id_API_plantilla FK - API_plantilla: id
+-id_tag FK - tags: id
+
+PK(id_API_plantilla, id_tag)
+
+
+---------------------------------------------------
+ESTRUCTURA GENERAL DEL CRM
+---------------------------------------------------
+
+El CRM se constituirá mediante distintos módulos integrables.
+
+Cada módulo deberá:
+- poder añadirse fácilmente
+- poder eliminarse fácilmente
+- ser independiente
+- mantener una arquitectura modular
+
+El CRM actualmente consta de 5 módulos más la aplicación central.
+
+
+---------------------------------------------------
+PAGINA INICIAL (CENTRAL)
+---------------------------------------------------
+
+En esta página se tendrá que visualizar:
+- un chatbot
+- accesos rápidos
+- resumen de clientes
+- resumen de APIs
+- estadísticas básicas
+
+
+---------------------------------------------------
+MODULO CLIENTES
+---------------------------------------------------
+
+En este apartado se observará el listado de clientes.
+
+Al clicar sobre un cliente se tendrá que visualizar:
+- todos sus datos
+- contratos
+- facturas
+- APIs específicas relacionadas
+- APIs plantilla relacionadas
+- etiquetas asociadas
+
+Filtros:
+- CIF
+- nombre_empresa
+- tags
+
+
+---------------------------------------------------
+MODULO POSIBLES CLIENTES
+---------------------------------------------------
+
+En este apartado se observará el listado de posibles clientes.
+
+Al clicar sobre un posible cliente se tendrá que visualizar:
+- todos sus datos
+- APIs plantilla recomendadas
+- etiquetas asociadas
+
+Filtros:
+- CIF
+- nombre_empresa
+- tags
+
+Diferencia entre cliente y posible cliente:
+- Un cliente ya tiene un contrato firmado.
+- Un posible cliente todavía no tiene contrato firmado.
+
+
+---------------------------------------------------
+MODULO APIs ESPECIFICAS
+---------------------------------------------------
+
+En este apartado se visualizarán todas las APIs desarrolladas específicamente para clientes.
+
+Al clicar sobre una API se visualizarán:
+- todos sus datos
+- cliente relacionado
+- etiquetas asociadas
+
+Filtros:
+- id
+- nombre
+- tags
+
+
+---------------------------------------------------
+MODULO APIs PLANTILLA
+---------------------------------------------------
+
+En este apartado se visualizarán todas las APIs plantilla.
+
+Al clicar sobre una API plantilla se visualizarán:
+- todos sus datos
+- clientes relacionados
+- posibles clientes relacionados
+- etiquetas asociadas
+
+Filtros:
+- id
+- nombre
+- tags
+
+
+---------------------------------------------------
+SISTEMA DE BUSQUEDA GLOBAL
+---------------------------------------------------
+
+Todos los módulos tendrán una barra de búsqueda global.
+
+La búsqueda podrá realizarse mediante:
+- nombre
+- CIF
+- id
+- etiquetas
+
+Las etiquetas se identificarán mediante el prefijo "#".
+
+Ejemplo:
+
+#Spring_boot
+
+La búsqueda deberá devolver todos los registros que tengan asociada dicha etiqueta.
+
+El sistema deberá permitir:
+- búsqueda parcial
+- autocompletado
+- múltiples tags
+- filtros dinámicos
+
+Ejemplo:
+
+#Spring_boot #Docker
+
+
+---------------------------------------------------
+OBJETIVOS DE ARQUITECTURA
+---------------------------------------------------
+
+El proyecto deberá:
+- ser escalable
+- mantener una arquitectura limpia
+- facilitar mantenimiento
+- facilitar ampliaciones futuras
+- permitir integración futura con IA
+- permitir búsquedas avanzadas
+- mantener modularidad
+- optimizar consultas PostgreSQL
+
+
+---------------------------------------------------
+COSAS A CREAR
+---------------------------------------------------
+
+-intefaz grafica
+-logica de Backend
+-logica de frontend
+-script para la base de datos
+-dos usuarios nuevos administradores (todos los permisos) de la base de datos "Manu" y "Carlos"
+-documentacion basica de la aplicacion
+
+---------------------------------------------------
+DATOS SOBRE LA BASE DE DATOS
+---------------------------------------------------
+
+entorno: PostgreSQL
+nombre de la base de datos: CRM
+puerto donde esta alojada: 5433
+nombre de usuario: postgres
+contrasenya de usuario: 1234 
+
+---------------------------------------------------
+DATOS SOBRE LA INTERFAZ
+---------------------------------------------------
+
+-se adjuntan las imagenes sobre las distintas pantallas de la interfaz
