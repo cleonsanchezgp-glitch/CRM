@@ -1,5 +1,5 @@
 use chrono::NaiveDate;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize)]
 pub struct Tag {
@@ -31,6 +31,59 @@ pub struct Client {
     pub tags: Vec<Tag>,
     pub apis_plantilla: Vec<ApiItem>,
     pub apis_especificas: Vec<ApiItem>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateClientRequest {
+    pub cif: String,
+    pub nombre_empresa: String,
+    pub telefono_contacto: Option<String>,
+    pub necesidades: Option<String>,
+    pub direccion: Option<String>,
+    pub url_archivos_adjuntos: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateLeadRequest {
+    pub cif: String,
+    pub nombre_empresa: String,
+    pub telefono_contacto: Option<String>,
+    pub necesidades: Option<String>,
+    pub estado: Option<String>,
+    pub direccion: Option<String>,
+    pub tickets: Option<String>,
+    pub url_archivos_adjuntos: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateApiRequest {
+    pub id: String,
+    pub nombre: String,
+    pub descripcion: Option<String>,
+    pub url: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateInvoiceRequest {
+    pub nombre_empresa: String,
+    pub url_factura: Option<String>,
+    pub coste_facturacion: f64,
+    pub fecha: Option<String>,
+    pub cif_cliente: String,
+}
+
+#[derive(Deserialize)]
+pub struct GitHubFilesRequest {
+    pub url: String,
+}
+
+#[derive(Serialize)]
+pub struct GitHubFileItem {
+    pub name: String,
+    pub path: String,
+    pub item_type: String,
+    pub html_url: String,
+    pub size: Option<i64>,
 }
 
 #[derive(Clone, Serialize)]
@@ -68,4 +121,24 @@ pub struct Dashboard {
     pub apis_plantilla: usize,
     pub apis_especificas: usize,
     pub facturas_pendientes: usize,
+}
+
+#[derive(Deserialize)]
+pub struct LoginRequest {
+    pub usuario: String,
+    pub contrasenya: String,
+}
+
+#[derive(Serialize)]
+pub struct LoginResponse {
+    pub token: String,
+    pub usuario: String,
+    pub rol: String,
+}
+
+#[derive(Deserialize)]
+pub struct TagMutationRequest {
+    pub entity_type: String,
+    pub entity_id: String,
+    pub tag_id: i64,
 }

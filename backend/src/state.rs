@@ -1,8 +1,12 @@
+use std::{collections::HashMap, sync::Arc};
+
 use sqlx::{PgPool, postgres::PgPoolOptions};
+use tokio::sync::RwLock;
 
 #[derive(Clone)]
 pub struct AppState {
     pub db: PgPool,
+    pub sessions: Arc<RwLock<HashMap<String, String>>>,
 }
 
 impl AppState {
@@ -15,6 +19,9 @@ impl AppState {
             .connect(&database_url)
             .await?;
 
-        Ok(Self { db })
+        Ok(Self {
+            db,
+            sessions: Arc::new(RwLock::new(HashMap::new())),
+        })
     }
 }

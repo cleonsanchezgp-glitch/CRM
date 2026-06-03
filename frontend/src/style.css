@@ -154,6 +154,147 @@ input:focus-visible {
   color: var(--action);
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(12, 12, 11, 0.74);
+  backdrop-filter: blur(10px);
+}
+
+.crm-modal {
+  width: min(760px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #242422;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.crm-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--line);
+  padding: 18px;
+}
+
+.crm-modal-header h2 {
+  margin: 0;
+  color: #fffdf4;
+  font-size: 24px;
+}
+
+.modal-kicker {
+  margin: 0 0 4px;
+  color: #de733e;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.crm-form {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.crm-form label {
+  display: grid;
+  gap: 7px;
+}
+
+.crm-form label span {
+  color: rgba(216, 208, 189, 0.72);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.crm-form input,
+.crm-form textarea,
+.crm-form select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #1d1d1b;
+  color: #fffdf4;
+  padding: 11px 12px;
+  outline: none;
+}
+
+.crm-form textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.crm-form input:focus,
+.crm-form textarea:focus,
+.crm-form select:focus {
+  border-color: #de733e;
+  box-shadow: 0 0 0 3px rgba(222, 115, 62, 0.16);
+}
+
+.crm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.primary-button,
+.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  border-radius: 8px;
+  padding: 0 14px;
+  font-weight: 800;
+}
+
+.primary-button {
+  background: #de733e;
+  color: #fff;
+}
+
+.primary-button:hover {
+  background: #c85f2d;
+}
+
+.secondary-button {
+  border: 1px solid var(--line);
+  background: #2b2b29;
+  color: #d8d0bd;
+}
+
+.secondary-button:hover {
+  border-color: #de733e;
+  color: #fffdf4;
+}
+
+.form-error {
+  margin: 0;
+  border: 1px solid rgba(222, 115, 62, 0.42);
+  border-radius: 8px;
+  background: rgba(222, 115, 62, 0.1);
+  color: #ffd9c6;
+  padding: 10px 12px;
+  font-weight: 700;
+}
+
 .nav-item {
   display: flex;
   align-items: center;
@@ -379,6 +520,476 @@ input:focus-visible {
   background: #494844;
 }
 
+.repo-view {
+  display: grid;
+  gap: 16px;
+}
+
+.repo-back {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #2b2b29;
+  padding: 8px 12px;
+  color: #d8d0bd;
+  font-weight: 700;
+}
+
+.repo-back:hover {
+  border-color: var(--action);
+  color: #fffdf4;
+}
+
+.repo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #282826;
+  padding: 18px;
+}
+
+.repo-title-group {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+}
+
+.repo-mark {
+  display: inline-flex;
+  height: 46px;
+  width: 46px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #3a3936;
+  color: var(--action);
+}
+
+.repo-owner {
+  margin: 0;
+  color: rgba(216, 208, 189, 0.62);
+  font-size: 13px;
+}
+
+.repo-header h2 {
+  margin: 0;
+  color: #fffdf4;
+  font-size: 24px;
+}
+
+.repo-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  color: rgba(216, 208, 189, 0.68);
+  font-size: 13px;
+}
+
+.repo-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  background: #2b2b29;
+  padding: 6px 10px;
+}
+
+.repo-description {
+  margin: 0;
+  color: rgba(216, 208, 189, 0.76);
+}
+
+.repo-file-panel,
+.repo-readme {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #1d1d1b;
+}
+
+.repo-commit-row,
+.repo-file-row {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.9fr) minmax(220px, 1.4fr) 140px;
+  gap: 16px;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding: 12px 14px;
+}
+
+.repo-commit-row {
+  background: #282826;
+  color: #d8d0bd;
+}
+
+.repo-commit-row span,
+.repo-commit-row small {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: rgba(216, 208, 189, 0.68);
+}
+
+.repo-commit-row small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.repo-file-row {
+  width: 100%;
+  color: #d8d0bd;
+  text-decoration: none;
+  text-align: left;
+}
+
+.repo-file-row:hover {
+  background: #282826;
+}
+
+.repo-file-row:last-child {
+  border-bottom: 0;
+}
+
+.repo-file-state {
+  border-bottom: 1px solid var(--line);
+  color: rgba(216, 208, 189, 0.72);
+  padding: 18px 14px;
+}
+
+.repo-file-state.error {
+  color: #ffd9c6;
+}
+
+.repo-file-name {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  overflow: hidden;
+  color: #fffdf4;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.repo-file-name svg {
+  color: #9aa3ad;
+  flex: 0 0 auto;
+}
+
+.repo-file-message,
+.repo-file-time {
+  overflow: hidden;
+  color: rgba(216, 208, 189, 0.62);
+  font-size: 14px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.repo-file-time {
+  text-align: right;
+}
+
+.repo-readme {
+  padding: 16px;
+  color: rgba(216, 208, 189, 0.76);
+}
+
+.repo-readme-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -16px -16px 14px;
+  border-bottom: 1px solid var(--line);
+  background: #282826;
+  padding: 12px 16px;
+  color: #fffdf4;
+  font-weight: 800;
+}
+
+.repo-readme p {
+  margin: 0 0 10px;
+}
+
+.client-profile {
+  display: grid;
+  gap: 16px;
+}
+
+.client-profile-shell {
+  display: grid;
+  grid-template-columns: minmax(260px, 330px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.client-status-panel,
+.client-section {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #282826;
+}
+
+.client-status-panel {
+  align-self: stretch;
+  padding: 18px;
+}
+
+.client-avatar {
+  display: grid;
+  width: 88px;
+  height: 88px;
+  margin-bottom: 16px;
+  place-items: center;
+  border-radius: 999px;
+  background: #3a3936;
+  color: var(--action);
+  font-size: 38px;
+  font-weight: 900;
+}
+
+.client-status-panel h2 {
+  margin: 0;
+  color: #fffdf4;
+  font-size: 28px;
+}
+
+.client-status-panel p {
+  margin: 6px 0 16px;
+  color: rgba(216, 208, 189, 0.68);
+  font-weight: 700;
+}
+
+.client-contact-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.client-contact-list span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: rgba(216, 208, 189, 0.76);
+  font-size: 14px;
+}
+
+.client-contact-list svg {
+  flex: 0 0 auto;
+  color: var(--action);
+}
+
+.client-profile-main {
+  display: grid;
+  gap: 16px;
+}
+
+.client-section {
+  padding: 16px;
+}
+
+.client-section-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 14px;
+  color: #fffdf4;
+}
+
+.client-section-title svg {
+  color: var(--action);
+}
+
+.client-section-title h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.client-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.client-info-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #1d1d1b;
+  padding: 12px;
+}
+
+.client-info-item span,
+.client-empty-note {
+  display: block;
+  color: rgba(216, 208, 189, 0.58);
+  font-size: 13px;
+}
+
+.client-info-item strong {
+  display: block;
+  margin-top: 4px;
+  color: #d8d0bd;
+}
+
+.client-need {
+  margin: 0;
+  border-left: 3px solid var(--action);
+  border-radius: 8px;
+  background: #1d1d1b;
+  padding: 14px;
+  color: rgba(216, 208, 189, 0.82);
+}
+
+.client-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.client-mini-api,
+.client-file-card {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #1d1d1b;
+  padding: 12px;
+  color: #d8d0bd;
+  text-align: left;
+}
+
+.client-mini-api:hover,
+.client-file-card:hover {
+  border-color: var(--action);
+  background: #2b2b29;
+}
+
+.client-mini-api svg,
+.client-file-card svg {
+  flex: 0 0 auto;
+  color: var(--action);
+}
+
+.client-mini-api span {
+  min-width: 0;
+}
+
+.client-mini-api strong,
+.client-mini-api small,
+.client-file-card span {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.client-mini-api small {
+  color: rgba(216, 208, 189, 0.58);
+}
+
+.client-file-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.client-ledger {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.client-ledger-row {
+  display: grid;
+  grid-template-columns: 120px 100px minmax(160px, 1fr) 140px;
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  background: #1d1d1b;
+  padding: 11px 12px;
+}
+
+.client-ledger-row:last-child {
+  border-bottom: 0;
+}
+
+.client-ledger-row span,
+.client-ledger-row small {
+  color: rgba(216, 208, 189, 0.68);
+}
+
+.client-ledger-row strong {
+  color: #fffdf4;
+}
+
+.tag-manager {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #1d1d1b;
+  padding: 12px;
+}
+
+.tag-manager-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tag-manager-head strong {
+  color: #fffdf4;
+}
+
+.tag-select {
+  min-width: 190px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #2b2b29;
+  color: #d8d0bd;
+  padding: 7px 10px;
+}
+
+.tag-select:disabled {
+  opacity: 0.5;
+}
+
+.tag-manager-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.tag-removable {
+  gap: 5px;
+  cursor: pointer;
+}
+
+.tag-removable:hover {
+  filter: brightness(1.15);
+}
+
+.tag-empty {
+  color: rgba(216, 208, 189, 0.62);
+  font-size: 14px;
+}
+
 .tag {
   display: inline-flex;
   align-items: center;
@@ -528,5 +1139,23 @@ input:focus-visible {
 
   .kanban-board {
     grid-template-columns: 1fr;
+  }
+
+  .repo-header,
+  .repo-commit-row,
+  .repo-file-row,
+  .form-grid,
+  .client-profile-shell,
+  .client-info-grid,
+  .client-mini-grid,
+  .client-file-strip,
+  .client-ledger-row {
+    grid-template-columns: 1fr;
+  }
+
+  .repo-file-time,
+  .repo-commit-row small {
+    text-align: left;
+    justify-content: flex-start;
   }
 }

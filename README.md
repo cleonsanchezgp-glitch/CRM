@@ -27,6 +27,14 @@ postgres://postgres:1234@localhost:5433/CRM
 
 Tambien puedes sobrescribirlo con `DATABASE_URL`.
 
+El login usa contrasenyas cifradas con AES-256. Por defecto se deriva la clave desde:
+
+```bash
+CRM_AES_KEY=crm-dev-aes-key-change-me
+```
+
+Para una clave propia, define `CRM_AES_KEY` antes de arrancar el backend y usa la misma clave al cifrar usuarios en PostgreSQL.
+
 Frontend para produccion/local en un unico puerto:
 
 ```bash
@@ -56,6 +64,12 @@ Base de datos PostgreSQL:
 ```bash
 psql -h localhost -p 5433 -U postgres -f database/schema.sql
 psql -h localhost -p 5433 -U postgres -f database/seed.sql
+```
+
+Si ya tienes la base creada y solo quieres actualizar usuarios para el login AES:
+
+```bash
+psql -h localhost -p 5433 -U postgres -f database/update_users_aes.sql
 ```
 
 Credenciales de entorno indicadas:
