@@ -77,6 +77,12 @@ pub struct GitHubFilesRequest {
     pub url: String,
 }
 
+#[derive(Deserialize)]
+pub struct GitHubFileContentRequest {
+    pub url: String,
+    pub path: String,
+}
+
 #[derive(Serialize)]
 pub struct GitHubFileItem {
     pub name: String,
@@ -84,6 +90,17 @@ pub struct GitHubFileItem {
     pub item_type: String,
     pub html_url: String,
     pub size: Option<i64>,
+}
+
+#[derive(Serialize)]
+pub struct GitHubFileContent {
+    pub name: String,
+    pub path: String,
+    pub content: String,
+    pub encoding: String,
+    pub media_type: String,
+    pub is_binary: bool,
+    pub size: i64,
 }
 
 #[derive(Clone, Serialize)]

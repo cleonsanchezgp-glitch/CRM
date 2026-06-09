@@ -608,8 +608,17 @@ input:focus-visible {
   color: rgba(216, 208, 189, 0.76);
 }
 
+.repo-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  width: 100%;
+}
+
 .repo-file-panel,
-.repo-readme {
+.repo-readme,
+.repo-content-panel {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -619,7 +628,7 @@ input:focus-visible {
 .repo-commit-row,
 .repo-file-row {
   display: grid;
-  grid-template-columns: minmax(190px, 0.9fr) minmax(220px, 1.4fr) 140px;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.7fr) 150px;
   gap: 16px;
   align-items: center;
   border-bottom: 1px solid var(--line);
@@ -648,13 +657,32 @@ input:focus-visible {
 
 .repo-file-row {
   width: 100%;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  background: transparent;
   color: #d8d0bd;
+  cursor: default;
+  font: inherit;
   text-decoration: none;
   text-align: left;
 }
 
+.repo-file-folder {
+  cursor: pointer;
+}
+
+.repo-file-document {
+  cursor: pointer;
+}
+
 .repo-file-row:hover {
   background: #282826;
+}
+
+.repo-file-row.selected {
+  background: #282826;
+  box-shadow: inset 3px 0 0 var(--action);
 }
 
 .repo-file-row:last-child {
@@ -686,6 +714,15 @@ input:focus-visible {
 .repo-file-name svg {
   color: #9aa3ad;
   flex: 0 0 auto;
+}
+
+.repo-file-spacer {
+  width: 16px;
+  flex: 0 0 auto;
+}
+
+.repo-file-folder[aria-expanded="true"] .repo-file-name svg:last-child {
+  color: #de733e;
 }
 
 .repo-file-message,
@@ -720,6 +757,189 @@ input:focus-visible {
 
 .repo-readme p {
   margin: 0 0 10px;
+}
+
+.repo-content-panel {
+  min-height: 520px;
+}
+
+.repo-content-panel.empty {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  padding: 22px;
+  color: rgba(216, 208, 189, 0.68);
+}
+
+.repo-content-panel.empty p {
+  margin: 0;
+}
+
+.repo-content-panel.empty small {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.repo-content-title {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  background: #282826;
+  padding: 12px 14px;
+  color: #fffdf4;
+  font-weight: 800;
+}
+
+.repo-content-title svg {
+  color: var(--action);
+}
+
+.repo-content-title span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.repo-content-title small {
+  color: rgba(216, 208, 189, 0.62);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.repo-content-state {
+  padding: 18px 14px;
+  color: rgba(216, 208, 189, 0.72);
+}
+
+.repo-content-state.error {
+  color: #ffd9c6;
+}
+
+.repo-code-view {
+  max-height: min(74vh, 860px);
+  margin: 0;
+  overflow: auto;
+  background: #151514;
+  color: #f3ead9;
+  padding: 16px;
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre;
+}
+
+.repo-image-preview {
+  display: grid;
+  min-height: 520px;
+  place-items: center;
+  background: #151514;
+  padding: 18px;
+}
+
+.repo-image-preview img {
+  max-width: 100%;
+  max-height: min(74vh, 860px);
+  border-radius: 8px;
+  object-fit: contain;
+  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.28);
+}
+
+.repo-binary-preview {
+  display: grid;
+  min-height: 360px;
+  place-items: center;
+  align-content: center;
+  gap: 9px;
+  padding: 24px;
+  color: rgba(216, 208, 189, 0.72);
+  text-align: center;
+}
+
+.repo-binary-preview svg {
+  color: var(--action);
+}
+
+.repo-binary-preview strong {
+  color: #fffdf4;
+  font-size: 18px;
+}
+
+.repo-binary-preview p {
+  max-width: 520px;
+  margin: 0;
+}
+
+.repo-binary-preview small {
+  color: rgba(216, 208, 189, 0.58);
+}
+
+.repo-markdown-preview {
+  max-height: min(74vh, 860px);
+  overflow: auto;
+  background: #151514;
+  color: rgba(216, 208, 189, 0.86);
+  padding: 22px;
+  line-height: 1.65;
+}
+
+.repo-markdown-preview h1,
+.repo-markdown-preview h2,
+.repo-markdown-preview h3 {
+  margin: 0 0 12px;
+  color: #fffdf4;
+  line-height: 1.2;
+}
+
+.repo-markdown-preview h1 {
+  font-size: 28px;
+}
+
+.repo-markdown-preview h2 {
+  font-size: 22px;
+}
+
+.repo-markdown-preview h3 {
+  font-size: 18px;
+}
+
+.repo-markdown-preview p {
+  margin: 0 0 12px;
+}
+
+.repo-markdown-preview ul {
+  margin: 0 0 14px;
+  padding-left: 22px;
+}
+
+.repo-markdown-preview li {
+  margin-bottom: 6px;
+}
+
+.repo-markdown-preview code {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #242422;
+  color: #fffdf4;
+  padding: 2px 5px;
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-size: 0.92em;
+}
+
+.repo-markdown-preview a {
+  color: #de733e;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.repo-markdown-preview a:hover {
+  text-decoration: underline;
+}
+
+.repo-markdown-gap {
+  height: 8px;
 }
 
 .client-profile {
@@ -1142,6 +1362,7 @@ input:focus-visible {
   }
 
   .repo-header,
+  .repo-workspace,
   .repo-commit-row,
   .repo-file-row,
   .form-grid,

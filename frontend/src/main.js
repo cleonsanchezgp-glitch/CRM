@@ -21,7 +21,7 @@ import {
 } from 'lucide'
 import { createElement, icons } from 'lucide'
 
-const icon = (name, size = 18) => createElement(icons[name], { width: size, height: size, 'stroke-width': 2 })
+const icon = (name, size = 18) => createElement(icons[name] || icons.FileText, { width: size, height: size, 'stroke-width': 2 })
 const API_BASE = '/api'
 
 const emptyData = {
@@ -49,8 +49,13 @@ const state = {
   activeCreateModal: '',
   createModalError: '',
   repositoryFiles: {},
+  repositoryOpenFolders: {},
   repositoryLoading: '',
   repositoryErrors: {},
+  repositorySelectedFiles: {},
+  repositoryFileContents: {},
+  repositoryFileLoading: '',
+  repositoryFileErrors: {},
 }
 
 async function boot() {
@@ -162,6 +167,30 @@ async function fetchRepositoryFiles(api) {
   return response.json()
 }
 
+async function fetchRepositoryFileContent(api, path) {
+  const response = await fetch(`${API_BASE}/github/file-content`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ url: api.url, path }),
+  })
+
+  if (response.status === 401) {
+    clearSession()
+    render()
+    throw new Error('Sesion caducada')
+  }
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw new Error(body.error || 'No se pudo cargar el contenido del archivo')
+  }
+
+  return response.json()
+}
+
 function authHeaders() {
   return state.authToken ? { Authorization: `Bearer ${state.authToken}` } : {}
 }
@@ -172,6 +201,9 @@ function repositoryKey(selection) {
 
 function selectApi(route, id) {
   state.selectedApi = { route, id }
+  const key = repositoryKey(state.selectedApi)
+  state.repositoryOpenFolders[key] = state.repositoryOpenFolders[key] || {}
+  state.repositorySelectedFiles[key] = state.repositorySelectedFiles[key] || ''
   render()
   loadRepositoryFiles(state.selectedApi)
 }
@@ -198,6 +230,32 @@ async function loadRepositoryFiles(selection) {
     state.repositoryErrors[key] = error.message
   } finally {
     if (state.repositoryLoading === key) state.repositoryLoading = ''
+    render()
+  }
+}
+
+async function loadRepositoryFileContent(selection, path) {
+  const api = findApi(selection)
+  if (!api || !path) return
+  const key = repositoryKey(selection)
+  const contentKey = `${key}:${path}`
+  state.repositorySelectedFiles[key] = path
+  state.repositoryFileErrors[contentKey] = ''
+
+  if (state.repositoryFileContents[contentKey]) {
+    render()
+    return
+  }
+
+  state.repositoryFileLoading = contentKey
+  render()
+
+  try {
+    state.repositoryFileContents[contentKey] = await fetchRepositoryFileContent(api, path)
+  } catch (error) {
+    state.repositoryFileErrors[contentKey] = error.message
+  } finally {
+    if (state.repositoryFileLoading === contentKey) state.repositoryFileLoading = ''
     render()
   }
 }
@@ -909,6 +967,7 @@ function apiRepositoryView(selection) {
   const files = state.repositoryFiles[key] || []
   const isLoading = state.repositoryLoading === key
   const loadError = state.repositoryErrors[key]
+  const selectedPath = state.repositorySelectedFiles[key] || ''
   return `
     <section class="repo-view">
       <button class="repo-back" data-api-back>${icon('ArrowLeft', 17).outerHTML} Volver a APIs</button>
@@ -928,21 +987,18 @@ function apiRepositoryView(selection) {
       <p class="repo-description">${api.descripcion}</p>
       <div class="mb-4 flex flex-wrap gap-1">${tags(api.tags)}</div>
       ${tagManager(selection.route === 'plantillas' ? 'api_plantilla' : 'api_especifica', api.id, api.tags)}
-      <div class="repo-file-panel">
-        <div class="repo-commit-row">
-          <strong>${state.authUser || 'CRM'}</strong>
-          <span>${api.descripcion || 'Ultima actualizacion del repositorio.'}</span>
-          <small>${icon('Clock', 14).outerHTML} ahora</small>
+      <div class="repo-workspace">
+        <div class="repo-file-panel">
+          <div class="repo-commit-row">
+            <strong>${state.authUser || 'CRM'}</strong>
+            <span>${api.descripcion || 'Estructura completa del repositorio.'}</span>
+            <small>${icon('Clock', 14).outerHTML} ahora</small>
+          </div>
+          <div class="repo-file-list">
+            ${repositoryFileRows(files, isLoading, loadError, selectedPath)}
+          </div>
         </div>
-        <div class="repo-file-list">
-          ${repositoryFileRows(files, isLoading, loadError)}
-        </div>
-      </div>
-      <div class="repo-readme">
-        <div class="repo-readme-title">${icon('FileText', 18).outerHTML} README.md</div>
-        <p>${api.descripcion}</p>
-        <p>Repositorio asociado: ${api.url || 'sin URL registrada'}</p>
-        <p>Clientes relacionados: ${(api.clientes_relacionados || []).join(', ') || 'sin clientes relacionados'}</p>
+        ${repositoryContentPanel(selection, api, selectedPath)}
       </div>
     </section>
   `
@@ -953,7 +1009,7 @@ function findApi(selection) {
   return source.find((api) => api.id === selection.id)
 }
 
-function repositoryFileRows(files, isLoading, loadError) {
+function repositoryFileRows(files, isLoading, loadError, selectedPath = '') {
   if (isLoading) {
     return '<div class="repo-file-state">Cargando archivos desde GitHub...</div>'
   }
@@ -964,13 +1020,187 @@ function repositoryFileRows(files, isLoading, loadError) {
     return '<div class="repo-file-state">El repositorio no contiene archivos en esta ruta.</div>'
   }
 
-  return files.map((file) => `
-    <a class="repo-file-row" href="${escapeHtml(file.html_url || '#')}" target="_blank" rel="noreferrer">
-      <span class="repo-file-name">${icon(file.item_type === 'folder' ? 'Folder' : 'FileText', 18).outerHTML}${escapeHtml(file.name)}</span>
-      <span class="repo-file-message">${escapeHtml(file.path || file.name)}</span>
-      <span class="repo-file-time">${file.item_type === 'folder' ? 'Carpeta' : formatFileSize(file.size)}</span>
-    </a>
-  `).join('')
+  const openFolders = state.selectedApi ? state.repositoryOpenFolders[repositoryKey(state.selectedApi)] || {} : {}
+  return visibleRepositoryFiles(files, openFolders).map(({ file, depth }) => {
+    const path = file.path || file.name
+    const isFolder = file.item_type === 'folder'
+    const isOpen = Boolean(openFolders[path])
+    const isSelected = selectedPath === path
+    const chevron = isFolder ? icon(isOpen ? 'ChevronDown' : 'ChevronRight', 16).outerHTML : '<span class="repo-file-spacer"></span>'
+    const content = `
+      <span class="repo-file-name" style="padding-left:${depth * 18}px">${chevron}${icon(isFolder ? 'Folder' : 'FileText', 18).outerHTML}${escapeHtml(file.name)}</span>
+      <span class="repo-file-message">${escapeHtml(path)}</span>
+      <span class="repo-file-time">${isFolder ? (isOpen ? 'Carpeta abierta' : 'Carpeta') : formatFileSize(file.size)}</span>
+    `
+
+    if (isFolder) {
+      return `
+        <button class="repo-file-row repo-file-folder" type="button" data-repo-folder="${escapeHtml(path)}" aria-expanded="${isOpen}">
+          ${content}
+        </button>
+      `
+    }
+
+    return `
+      <button class="repo-file-row repo-file-document ${isSelected ? 'selected' : ''}" type="button" data-repo-file="${escapeHtml(path)}">
+        ${content}
+      </button>
+    `
+  }).join('')
+}
+
+function repositoryContentPanel(selection, api, selectedPath) {
+  const key = repositoryKey(selection)
+  const contentKey = selectedPath ? `${key}:${selectedPath}` : ''
+  const file = contentKey ? state.repositoryFileContents[contentKey] : null
+  const isLoading = contentKey && state.repositoryFileLoading === contentKey
+  const error = contentKey ? state.repositoryFileErrors[contentKey] : ''
+
+  if (!selectedPath) {
+    return ''
+  }
+
+  if (isLoading) {
+    return `
+      <aside class="repo-content-panel">
+        <div class="repo-content-title">${icon('LoaderCircle', 18).outerHTML}<span>${escapeHtml(selectedPath)}</span></div>
+        <div class="repo-content-state">Cargando contenido desde GitHub...</div>
+      </aside>
+    `
+  }
+
+  if (error) {
+    return `
+      <aside class="repo-content-panel">
+        <div class="repo-content-title">${icon('FileText', 18).outerHTML}<span>${escapeHtml(selectedPath)}</span></div>
+        <div class="repo-content-state error">${escapeHtml(error)}</div>
+      </aside>
+    `
+  }
+
+  return `
+    <aside class="repo-content-panel">
+      <div class="repo-content-title">
+        ${icon(fileIcon(file), 18).outerHTML}
+        <span>${escapeHtml(file?.path || selectedPath)}</span>
+        <small>${formatFileSize(file?.size)} · ${escapeHtml(file?.media_type || 'archivo')}</small>
+      </div>
+      ${repositoryPreview(file)}
+    </aside>
+  `
+}
+
+function repositoryPreview(file) {
+  if (!file) {
+    return '<div class="repo-content-state">Selecciona un archivo para cargar su contenido.</div>'
+  }
+
+  if (file.media_type?.startsWith('image/')) {
+    return `
+      <div class="repo-image-preview">
+        <img src="data:${escapeHtml(file.media_type)};base64,${file.content}" alt="${escapeHtml(file.name)}" />
+      </div>
+    `
+  }
+
+  if (file.is_binary) {
+    return `
+      <div class="repo-binary-preview">
+        ${icon('FileArchive', 34).outerHTML}
+        <strong>Previsualizacion no disponible</strong>
+        <p>Este archivo es binario o no tiene un formato de lectura directa dentro del CRM.</p>
+        <small>${escapeHtml(file.media_type || 'application/octet-stream')} · ${formatFileSize(file.size)}</small>
+      </div>
+    `
+  }
+
+  if (file.media_type === 'text/markdown' || file.path?.toLowerCase().endsWith('.md')) {
+    return `<article class="repo-markdown-preview">${renderMarkdownPreview(file.content || '')}</article>`
+  }
+
+  return `<pre class="repo-code-view"><code>${escapeHtml(file.content || '')}</code></pre>`
+}
+
+function fileIcon(file) {
+  if (file?.media_type?.startsWith('image/')) return 'Image'
+  if (file?.is_binary) return 'FileArchive'
+  if (file?.media_type === 'text/markdown' || file?.path?.toLowerCase().endsWith('.md')) return 'BookOpenText'
+  return 'FileText'
+}
+
+function renderMarkdownPreview(content) {
+  const lines = String(content).split(/\r?\n/)
+  let inList = false
+  const html = []
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    const heading = trimmed.match(/^(#{1,3})\s+(.+)$/)
+    const listItem = trimmed.match(/^[-*]\s+(.+)$/)
+
+    if (!listItem && inList) {
+      html.push('</ul>')
+      inList = false
+    }
+
+    if (!trimmed) {
+      html.push('<p class="repo-markdown-gap"></p>')
+    } else if (heading) {
+      const level = heading[1].length
+      html.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`)
+    } else if (listItem) {
+      if (!inList) {
+        html.push('<ul>')
+        inList = true
+      }
+      html.push(`<li>${inlineMarkdown(listItem[1])}</li>`)
+    } else {
+      html.push(`<p>${inlineMarkdown(trimmed)}</p>`)
+    }
+  }
+
+  if (inList) html.push('</ul>')
+  return html.join('')
+}
+
+function inlineMarkdown(value) {
+  return escapeHtml(value)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
+}
+
+function visibleRepositoryFiles(files, openFolders) {
+  return files
+    .filter((file) => isRepositoryFileVisible(file, openFolders))
+    .map((file) => ({ file, depth: repositoryFileDepth(file) }))
+}
+
+function isRepositoryFileVisible(file, openFolders) {
+  const path = String(file.path || file.name || '')
+  const parentParts = path.split('/').slice(0, -1)
+  let parentPath = ''
+  for (const part of parentParts) {
+    parentPath = parentPath ? `${parentPath}/${part}` : part
+    if (!openFolders[parentPath]) return false
+  }
+  return true
+}
+
+function repositoryFileDepth(file) {
+  return Math.max(0, String(file.path || file.name || '').split('/').length - 1)
+}
+
+function toggleRepositoryFolder(path) {
+  if (!state.selectedApi || !path) return
+  const key = repositoryKey(state.selectedApi)
+  state.repositoryOpenFolders[key] = state.repositoryOpenFolders[key] || {}
+  if (state.repositoryOpenFolders[key][path]) {
+    delete state.repositoryOpenFolders[key][path]
+  } else {
+    state.repositoryOpenFolders[key][path] = true
+  }
+  render()
 }
 
 function formatFileSize(size) {
@@ -1245,6 +1475,17 @@ function bindEvents() {
   document.querySelector('[data-api-back]')?.addEventListener('click', () => {
     state.selectedApi = null
     render()
+  })
+  document.querySelectorAll('[data-repo-folder]').forEach((folder) => {
+    folder.addEventListener('click', () => {
+      toggleRepositoryFolder(folder.dataset.repoFolder)
+    })
+  })
+  document.querySelectorAll('[data-repo-file]').forEach((file) => {
+    file.addEventListener('click', () => {
+      if (!state.selectedApi) return
+      loadRepositoryFileContent(state.selectedApi, file.dataset.repoFile)
+    })
   })
   document.querySelector('[data-client-back]')?.addEventListener('click', () => {
     state.selectedClient = null

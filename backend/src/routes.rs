@@ -5,6 +5,7 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
+use base64::{Engine as _, engine::general_purpose};
 use chrono::NaiveDate;
 use sqlx::{PgPool, Row};
 
@@ -12,8 +13,9 @@ use crate::{
     auth::{create_session, decrypt_password, require_auth},
     models::{
         ApiItem, Client, Contract, CreateApiRequest, CreateClientRequest, CreateInvoiceRequest,
-        CreateLeadRequest, Dashboard, GitHubFileItem, GitHubFilesRequest, Incident, Invoice,
-        LoginRequest, LoginResponse, Tag, TagMutationRequest,
+        CreateLeadRequest, Dashboard, GitHubFileContent, GitHubFileContentRequest,
+        GitHubFileItem, GitHubFilesRequest, Incident, Invoice, LoginRequest, LoginResponse, Tag,
+        TagMutationRequest,
     },
     state::AppState,
 };
@@ -41,6 +43,7 @@ pub fn router() -> Router<AppState> {
         .route("/contratos", get(contratos))
         .route("/incidencias", get(incidencias))
         .route("/github/repository-files", post(github_repository_files))
+        .route("/github/file-content", post(github_file_content))
         .route("/tags", get(tags))
         .route("/tags/add", post(add_tag))
         .route("/tags/remove", post(remove_tag))
@@ -555,6 +558,40 @@ async fn github_repository_files(
     }
 }
 
+async fn github_file_content(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<GitHubFileContentRequest>,
+) -> impl IntoResponse {
+    if require_auth(&state, &headers).await.is_err() {
+        return error_response(StatusCode::UNAUTHORIZED, "no autorizado");
+    }
+
+    let Some(repo) = parse_github_repo_url(&payload.url) else {
+        return error_response(
+            StatusCode::BAD_REQUEST,
+            "La URL debe ser un repositorio de GitHub valido",
+        );
+    };
+
+    let path = payload.path.trim().trim_matches('/');
+    if path.is_empty() || path.contains("..") {
+        return error_response(StatusCode::BAD_REQUEST, "Ruta de archivo no valida");
+    }
+
+    let Ok(token) = std::env::var("GITHUB_TOKEN") else {
+        return error_response(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Falta configurar GITHUB_TOKEN para leer repositorios privados",
+        );
+    };
+
+    match fetch_github_file_content(&repo, path, &token).await {
+        Ok(content) => (StatusCode::OK, Json(serde_json::json!(content))),
+        Err(error) => error_response(StatusCode::BAD_GATEWAY, &error),
+    }
+}
+
 async fn tags(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -624,12 +661,29 @@ struct GitHubRepoRef {
 }
 
 #[derive(serde::Deserialize)]
-struct GitHubContentItem {
+struct GitHubTreeResponse {
+    tree: Vec<GitHubTreeItem>,
+}
+
+#[derive(serde::Deserialize)]
+struct GitHubRepoMetadata {
+    default_branch: String,
+}
+
+#[derive(serde::Deserialize)]
+struct GitHubContentResponse {
     name: String,
+    path: String,
+    content: String,
+    encoding: String,
+    size: i64,
+}
+
+#[derive(serde::Deserialize)]
+struct GitHubTreeItem {
     path: String,
     #[serde(rename = "type")]
     item_type: String,
-    html_url: Option<String>,
     size: Option<i64>,
 }
 
@@ -661,6 +715,12 @@ fn parse_github_repo_url(url: &str) -> Option<GitHubRepoRef> {
             repo_ref.path = Some(parts[4..].join("/"));
         }
     }
+    if parts.len() >= 4 && parts[2] == "blob" {
+        repo_ref.branch = Some(parts[3].to_string());
+        if parts.len() > 4 {
+            repo_ref.path = Some(parts[4..].join("/"));
+        }
+    }
 
     Some(repo_ref)
 }
@@ -669,16 +729,20 @@ async fn fetch_github_files(
     repo: &GitHubRepoRef,
     token: &str,
 ) -> Result<Vec<GitHubFileItem>, String> {
-    let path = repo.path.clone().unwrap_or_default();
-    let mut api_url = format!(
-        "https://api.github.com/repos/{}/{}/contents/{}",
-        repo.owner, repo.repo, path
+    let client = reqwest::Client::new();
+    let default_branch;
+    let tree_ref = if let Some(branch) = repo.branch.clone() {
+        branch
+    } else {
+        default_branch = fetch_github_default_branch(&client, repo, token).await?;
+        default_branch
+    };
+    let api_url = format!(
+        "https://api.github.com/repos/{}/{}/git/trees/{}?recursive=1",
+        repo.owner, repo.repo, tree_ref
     );
-    if let Some(branch) = &repo.branch {
-        api_url.push_str(&format!("?ref={branch}"));
-    }
 
-    let response = reqwest::Client::new()
+    let response = client
         .get(api_url)
         .header("Accept", "application/vnd.github+json")
         .header("Authorization", format!("Bearer {token}"))
@@ -700,33 +764,242 @@ async fn fetch_github_files(
         return Err(format!("GitHub ha devuelto estado {}", response.status()));
     }
 
-    let mut items = response
-        .json::<Vec<GitHubContentItem>>()
+    let tree_response = response
+        .json::<GitHubTreeResponse>()
         .await
         .map_err(|error| format!("No se pudo interpretar la respuesta de GitHub: {error}"))?;
 
+    let base_path = repo.path.as_deref().unwrap_or("").trim_matches('/');
+    let mut items = tree_response
+        .tree
+        .into_iter()
+        .filter(|item| item.item_type == "tree" || item.item_type == "blob")
+        .filter(|item| {
+            base_path.is_empty()
+                || item.path == base_path
+                || item.path.starts_with(&format!("{base_path}/"))
+        })
+        .collect::<Vec<_>>();
+
     items.sort_by(|left, right| {
-        let left_rank = if left.item_type == "dir" { 0 } else { 1 };
-        let right_rank = if right.item_type == "dir" { 0 } else { 1 };
-        left_rank
-            .cmp(&right_rank)
-            .then_with(|| left.name.to_lowercase().cmp(&right.name.to_lowercase()))
+        left.path
+            .to_lowercase()
+            .cmp(&right.path.to_lowercase())
+            .then_with(|| {
+                let left_rank = if left.item_type == "tree" { 0 } else { 1 };
+                let right_rank = if right.item_type == "tree" { 0 } else { 1 };
+                left_rank.cmp(&right_rank)
+            })
     });
 
     Ok(items
         .into_iter()
+        .filter(|item| base_path.is_empty() || item.path != base_path)
         .map(|item| GitHubFileItem {
-            name: item.name,
+            name: item
+                .path
+                .rsplit('/')
+                .next()
+                .unwrap_or(item.path.as_str())
+                .to_string(),
+            html_url: format!(
+                "https://github.com/{}/{}/{}/{}/{}",
+                repo.owner,
+                repo.repo,
+                if item.item_type == "tree" { "tree" } else { "blob" },
+                tree_ref,
+                item.path
+            ),
             path: item.path,
-            item_type: if item.item_type == "dir" {
+            item_type: if item.item_type == "tree" {
                 "folder".to_string()
             } else {
                 "file".to_string()
             },
-            html_url: item.html_url.unwrap_or_default(),
             size: item.size,
         })
         .collect())
+}
+
+async fn fetch_github_file_content(
+    repo: &GitHubRepoRef,
+    path: &str,
+    token: &str,
+) -> Result<GitHubFileContent, String> {
+    let client = reqwest::Client::new();
+    let default_branch;
+    let branch = if let Some(branch) = repo.branch.clone() {
+        branch
+    } else {
+        default_branch = fetch_github_default_branch(&client, repo, token).await?;
+        default_branch
+    };
+    let api_url = format!(
+        "https://api.github.com/repos/{}/{}/contents/{}?ref={}",
+        repo.owner,
+        repo.repo,
+        percent_encode_path(path),
+        percent_encode(&branch)
+    );
+
+    let response = client
+        .get(api_url)
+        .header("Accept", "application/vnd.github+json")
+        .header("Authorization", format!("Bearer {token}"))
+        .header("User-Agent", "argonesa-crm")
+        .send()
+        .await
+        .map_err(|error| format!("No se pudo conectar con GitHub: {error}"))?;
+
+    if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+        return Err("GitHub ha rechazado el token configurado".to_string());
+    }
+    if response.status() == reqwest::StatusCode::FORBIDDEN {
+        return Err("El token no tiene permisos para leer este archivo".to_string());
+    }
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+        return Err("Archivo no encontrado en GitHub".to_string());
+    }
+    if !response.status().is_success() {
+        return Err(format!("GitHub ha devuelto estado {}", response.status()));
+    }
+
+    let file = response
+        .json::<GitHubContentResponse>()
+        .await
+        .map_err(|error| format!("No se pudo interpretar el archivo de GitHub: {error}"))?;
+
+    if file.encoding != "base64" {
+        return Err("GitHub ha devuelto un formato de archivo no soportado".to_string());
+    }
+
+    let media_type = media_type_for_path(&file.path).to_string();
+    let raw_content = file.content.replace('\n', "");
+    let bytes = general_purpose::STANDARD
+        .decode(&raw_content)
+        .map_err(|_| "No se pudo decodificar el archivo de GitHub".to_string())?;
+    let is_image = media_type.starts_with("image/");
+    let is_text = media_type.starts_with("text/")
+        || matches!(
+            file.path.rsplit('.').next().unwrap_or("").to_ascii_lowercase().as_str(),
+            "env"
+                | "gitignore"
+                | "dockerignore"
+                | "rs"
+                | "js"
+                | "jsx"
+                | "ts"
+                | "tsx"
+                | "json"
+                | "toml"
+                | "yaml"
+                | "yml"
+                | "md"
+                | "sql"
+                | "html"
+                | "css"
+                | "svg"
+        );
+    let (content, encoding, is_binary) = if is_image {
+        (raw_content, "base64".to_string(), true)
+    } else if is_text {
+        (
+            String::from_utf8(bytes)
+                .map_err(|_| "Este archivo no es texto y no puede visualizarse en el CRM".to_string())?,
+            "utf-8".to_string(),
+            false,
+        )
+    } else {
+        ("".to_string(), "binary".to_string(), true)
+    };
+
+    Ok(GitHubFileContent {
+        name: file.name,
+        path: file.path,
+        content,
+        encoding,
+        media_type,
+        is_binary,
+        size: file.size,
+    })
+}
+
+async fn fetch_github_default_branch(
+    client: &reqwest::Client,
+    repo: &GitHubRepoRef,
+    token: &str,
+) -> Result<String, String> {
+    let api_url = format!("https://api.github.com/repos/{}/{}", repo.owner, repo.repo);
+    let response = client
+        .get(api_url)
+        .header("Accept", "application/vnd.github+json")
+        .header("Authorization", format!("Bearer {token}"))
+        .header("User-Agent", "argonesa-crm")
+        .send()
+        .await
+        .map_err(|error| format!("No se pudo conectar con GitHub: {error}"))?;
+
+    if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+        return Err("GitHub ha rechazado el token configurado".to_string());
+    }
+    if response.status() == reqwest::StatusCode::FORBIDDEN {
+        return Err("El token no tiene permisos para leer este repositorio".to_string());
+    }
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+        return Err("Repositorio no encontrado en GitHub".to_string());
+    }
+    if !response.status().is_success() {
+        return Err(format!("GitHub ha devuelto estado {}", response.status()));
+    }
+
+    response
+        .json::<GitHubRepoMetadata>()
+        .await
+        .map(|metadata| metadata.default_branch)
+        .map_err(|error| format!("No se pudo interpretar la respuesta de GitHub: {error}"))
+}
+
+fn percent_encode_path(path: &str) -> String {
+    path.split('/')
+        .map(percent_encode)
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+fn percent_encode(value: &str) -> String {
+    value
+        .bytes()
+        .map(|byte| match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                (byte as char).to_string()
+            }
+            _ => format!("%{byte:02X}"),
+        })
+        .collect()
+}
+
+fn media_type_for_path(path: &str) -> &'static str {
+    match path.rsplit('.').next().unwrap_or("").to_ascii_lowercase().as_str() {
+        "md" => "text/markdown",
+        "txt" | "log" | "env" | "gitignore" | "dockerignore" => "text/plain",
+        "html" | "htm" => "text/html",
+        "css" => "text/css",
+        "js" | "jsx" | "mjs" | "cjs" => "text/javascript",
+        "ts" | "tsx" => "text/typescript",
+        "json" => "application/json",
+        "toml" => "application/toml",
+        "yaml" | "yml" => "application/yaml",
+        "xml" | "svg" => "image/svg+xml",
+        "rs" | "sql" | "py" | "java" | "c" | "cpp" | "h" | "go" | "php" | "rb" => "text/plain",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "bmp" => "image/bmp",
+        "ico" => "image/x-icon",
+        "pdf" => "application/pdf",
+        _ => "application/octet-stream",
+    }
 }
 
 fn optional_trim(value: Option<String>) -> Option<String> {
