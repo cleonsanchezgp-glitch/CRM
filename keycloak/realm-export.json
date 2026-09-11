@@ -1,0 +1,98 @@
+{
+  "realm": "crm",
+  "enabled": true,
+  "displayName": "Aelium CRM",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "crm_user",
+        "description": "Permite acceder al CRM."
+      },
+      {
+        "name": "crm_admin",
+        "description": "Administracion completa del CRM.",
+        "composite": true,
+        "composites": {
+          "realm": ["crm_user"]
+        }
+      }
+    ]
+  },
+  "groups": [
+    {
+      "name": "Administradores",
+      "realmRoles": ["crm_admin", "crm_user"]
+    },
+    {
+      "name": "Usuarios CRM",
+      "realmRoles": ["crm_user"]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "crm-frontend",
+      "name": "CRM Frontend",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "http://127.0.0.1:5173/*",
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173"
+      ],
+      "defaultClientScopes": ["web-origins", "profile", "email", "roles"],
+      "optionalClientScopes": ["address", "phone", "offline_access"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://127.0.0.1:5173/*##http://localhost:5173/*"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "Manu",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Manu",
+      "lastName": "Administrador",
+      "email": "manu@example.local",
+      "groups": ["/Administradores"],
+      "realmRoles": ["crm_admin", "crm_user"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "1234",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "Carlos",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Carlos",
+      "lastName": "Administrador",
+      "email": "carlos@example.local",
+      "groups": ["/Administradores"],
+      "realmRoles": ["crm_admin", "crm_user"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "1234",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

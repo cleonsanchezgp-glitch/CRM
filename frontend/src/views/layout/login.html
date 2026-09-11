@@ -1,0 +1,42 @@
+<main class="login-grid bg-[#1d1d1b]">
+  <section class="flex min-h-[360px] flex-col justify-between bg-[#52493a] p-8 text-white md:p-12">
+    <div class="flex items-center gap-3">
+      <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-[#3a3936] text-[#de733e]">{{{boxesIcon}}}</div>
+      <div>
+        <p class="text-sm uppercase tracking-[0.18em] text-[#a7c7c1]">Argonesa Informatica</p>
+        <h1 class="text-2xl font-semibold">CRM APIs</h1>
+      </div>
+    </div>
+    <div class="max-w-xl">
+      <p class="mb-4 text-sm uppercase tracking-[0.18em] text-[#a7c7c1]">Inicio de sesion</p>
+      <h2 class="text-4xl font-semibold leading-tight md:text-5xl">Administracion clara para clientes, proyectos y APIs.</h2>
+    </div>
+    <div class="grid grid-cols-3 gap-3 text-sm text-[#d5e4e0]">
+      <span>Tags globales</span>
+      <span>Contratos</span>
+      <span>Facturas</span>
+    </div>
+  </section>
+  <section class="flex items-center justify-center p-6">
+    <form id="login-form" class="panel w-full max-w-md p-7">
+      <div class="mb-7 flex items-center justify-between">
+        <div>
+          <p class="text-sm font-semibold text-[#de733e]">Acceso interno</p>
+          <h2 class="text-2xl font-bold text-[#d8d0bd]">Iniciar sesion {{authProviderName}}</h2>
+        </div>
+        {{{shieldIcon}}}
+      </div>
+      <label class="mb-4 block text-sm font-semibold text-[#d8d0bd]">Usuario
+        <input class="mt-2 w-full rounded-lg border border-[rgba(255,253,244,0.12)] bg-[#2b2b29] px-3 py-3 text-[#fffdf4]" value="Manu" name="user" />
+      </label>
+      <label class="mb-6 block text-sm font-semibold text-[#d8d0bd]">Contrasenya
+        <input class="mt-2 w-full rounded-lg border border-[rgba(255,253,244,0.12)] bg-[#2b2b29] px-3 py-3 text-[#fffdf4]" type="password" value="1234" name="password" />
+      </label>
+      <button class="flex w-full items-center justify-center gap-2 rounded-lg bg-[#de733e] px-4 py-3 font-bold text-white hover:bg-[#c65f2f]" type="submit">
+        {{{keyIcon}}} {{loginButtonText}}
+      </button>
+      {{#if error}}<p class="mt-4 rounded-lg border border-[#de733e]/50 bg-[#de733e]/10 p-3 text-sm font-semibold text-[#ffb28c]">{{error}}</p>{{/if}}
+      <p class="mt-5 text-sm text-[rgba(216,208,189,0.68)]">{{loginHelp}}</p>
+    </form>
+  </section>
+</main>

@@ -1,0 +1,8 @@
+<button type="button" class="project-progress-card" data-api-route="{{route}}" data-api-id="{{id}}">
+  <div class="project-progress-head">
+    <h3>{{nombre}}</h3>
+    {{{arrowIcon}}}
+  </div>
+  <p class="project-progress-commit {{commitClass}}">{{commitText}}</p>
+  {{#if commitMeta}}<p class="project-progress-meta">{{commitMeta}}</p>{{/if}}
+</button>

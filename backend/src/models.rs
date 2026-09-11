@@ -103,6 +103,15 @@ pub struct GitHubFileContent {
     pub size: i64,
 }
 
+#[derive(Serialize)]
+pub struct GitHubLastCommit {
+    pub sha: String,
+    pub message: String,
+    pub author: String,
+    pub date: String,
+    pub html_url: String,
+}
+
 #[derive(Clone, Serialize)]
 pub struct Invoice {
     pub id: i64,
@@ -151,6 +160,12 @@ pub struct LoginResponse {
     pub token: String,
     pub usuario: String,
     pub rol: String,
+}
+
+#[derive(Serialize)]
+pub struct AuthUser {
+    pub usuario: String,
+    pub provider: String,
 }
 
 #[derive(Deserialize)]

@@ -1,0 +1,19 @@
+<article class="api-card" data-api-route="{{route}}" data-api-id="{{id}}" role="button" tabindex="0">
+  <div class="logo-rail {{railClass}}">{{{icon}}}</div>
+  <div class="api-card-body">
+    <div class="mb-2 flex items-start justify-between gap-3">
+      <div class="flex min-w-0 items-start justify-between gap-3">
+        <h3 class="api-card-title">{{nombre}}</h3>
+        <button class="entity-delete" type="button" data-delete-api="{{id}}" data-api-kind="{{apiKind}}" title="Borrar API" aria-label="Borrar API {{nombre}}">{{{deleteIcon}}}</button>
+      </div>
+      <span class="shrink-0 text-xs font-bold text-[#7c8569]">{{id}}</span>
+    </div>
+    <p class="text-sm text-[rgba(216,208,189,0.72)]">{{descripcion}}</p>
+    <div class="mt-4 flex flex-wrap gap-1">{{{tagsHtml}}}</div>
+    {{{statusHtml}}}
+    <div class="mt-4 border-t border-[rgba(255,253,244,0.12)] pt-3 text-sm text-[rgba(216,208,189,0.68)]">
+      <p>Clientes: {{clientesRelacionados}}</p>
+      <p class="truncate">Repositorio: {{url}}</p>
+    </div>
+  </div>
+</article>

@@ -1,0 +1,35 @@
+<section class="repo-view">
+  <button class="repo-back" data-api-back>{{{backIcon}}} Volver a APIs</button>
+  <div class="repo-header">
+    <div class="repo-title-group">
+      <span class="repo-mark">{{{routeIcon}}}</span>
+      <div>
+        <p class="repo-owner">CRM APIs / {{routeLabel}}</p>
+        <h2>{{nombre}}</h2>
+      </div>
+    </div>
+    <div class="repo-meta">
+      <span>{{id}}</span>
+      <span>{{{commitIcon}}} {{shortCommit}}</span>
+      <button class="danger-icon-button" type="button" data-delete-api="{{id}}" data-api-kind="{{apiKind}}" title="Borrar API" aria-label="Borrar API {{nombre}}">
+        {{{deleteIcon}}}
+      </button>
+    </div>
+  </div>
+  <p class="repo-description">{{descripcion}}</p>
+  <div class="mb-4 flex flex-wrap gap-1">{{{tagsHtml}}}</div>
+  {{{tagManagerHtml}}}
+  <div class="repo-workspace">
+    <div class="repo-file-panel">
+      <div class="repo-commit-row">
+        <strong>{{authUser}}</strong>
+        <span>{{commitDescription}}</span>
+        <small>{{{clockIcon}}} ahora</small>
+      </div>
+      <div class="repo-file-list">
+        {{{fileRowsHtml}}}
+      </div>
+    </div>
+    {{{contentPanelHtml}}}
+  </div>
+</section>

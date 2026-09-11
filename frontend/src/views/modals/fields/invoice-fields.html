@@ -1,0 +1,25 @@
+<div class="form-grid">
+  <label>
+    <span>Cliente</span>
+    <select name="cif_cliente" required>
+      <option value="">Selecciona cliente</option>
+      {{{clientOptionsHtml}}}
+    </select>
+  </label>
+  <label>
+    <span>Nombre empresa</span>
+    <input name="nombre_empresa" required placeholder="Empresa facturada" />
+  </label>
+  <label>
+    <span>Coste facturacion</span>
+    <input name="coste_facturacion" type="number" min="0" step="0.01" required placeholder="750.00" />
+  </label>
+  <label>
+    <span>Fecha</span>
+    <input name="fecha" type="date" />
+  </label>
+</div>
+<label>
+  <span>URL factura</span>
+  <input name="url_factura" placeholder="https://..." />
+</label>

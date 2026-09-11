@@ -1,0 +1,12 @@
+<div class="tag-manager" data-tag-scope="{{entityType}}" data-tag-entity="{{entityId}}">
+  <div class="tag-manager-head">
+    <strong>Etiquetas</strong>
+    <select class="tag-select" data-tag-add {{{disabledAttr}}}>
+      <option value="">Añadir etiqueta</option>
+      {{#each availableTags}}<option value="{{id}}">#{{nombre}}</option>{{/each}}
+    </select>
+  </div>
+  <div class="tag-manager-list">
+    {{#each currentTags}}{{{this}}}{{else}}<span class="tag-empty">Sin etiquetas asignadas.</span>{{/each}}
+  </div>
+</div>

@@ -3,19 +3,19 @@ use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use base64::{Engine as _, engine::general_purpose};
 use chrono::NaiveDate;
 use sqlx::{PgPool, Row};
 
 use crate::{
-    auth::{create_session, decrypt_password, require_auth},
+    auth::{create_session, current_user, decrypt_password, local_auth_enabled, require_auth},
     models::{
-        ApiItem, Client, Contract, CreateApiRequest, CreateClientRequest, CreateInvoiceRequest,
-        CreateLeadRequest, Dashboard, GitHubFileContent, GitHubFileContentRequest,
-        GitHubFileItem, GitHubFilesRequest, Incident, Invoice, LoginRequest, LoginResponse, Tag,
-        TagMutationRequest,
+        ApiItem, AuthUser, Client, Contract, CreateApiRequest, CreateClientRequest,
+        CreateInvoiceRequest, CreateLeadRequest, Dashboard, GitHubFileContent,
+        GitHubFileContentRequest, GitHubFileItem, GitHubFilesRequest, GitHubLastCommit, Incident,
+        Invoice, LoginRequest, LoginResponse, Tag, TagMutationRequest,
     },
     state::AppState,
 };
@@ -24,35 +24,61 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/health", get(health))
         .route("/auth/login", post(login))
+        .route("/auth/me", get(me))
         .route("/dashboard", get(dashboard))
         .route("/clientes", get(clientes).post(create_cliente))
-        .route("/clientes/{cif}", get(cliente_by_cif))
+        .route(
+            "/clientes/{cif}",
+            get(cliente_by_cif).delete(delete_cliente),
+        )
         .route(
             "/posibles-clientes",
             get(posibles_clientes).post(create_posible_cliente),
         )
+        .route("/posibles-clientes/{cif}", delete(delete_posible_cliente))
         .route(
             "/apis/plantilla",
             get(apis_plantilla).post(create_api_plantilla),
         )
+        .route("/apis/plantilla/{id}", delete(delete_api_plantilla))
         .route(
             "/apis/especificas",
             get(apis_especificas).post(create_api_especifica),
         )
+        .route("/apis/especificas/{id}", delete(delete_api_especifica))
         .route("/facturas", get(facturas).post(create_factura))
         .route("/contratos", get(contratos))
         .route("/incidencias", get(incidencias))
         .route("/github/repository-files", post(github_repository_files))
         .route("/github/file-content", post(github_file_content))
+        .route("/github/last-commit", post(github_last_commit))
         .route("/tags", get(tags))
         .route("/tags/add", post(add_tag))
         .route("/tags/remove", post(remove_tag))
+}
+
+async fn me(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<AuthUser>, StatusCode> {
+    let usuario = current_user(&state, &headers).await?;
+    Ok(Json(AuthUser {
+        usuario,
+        provider: "keycloak".to_string(),
+    }))
 }
 
 async fn login(
     State(state): State<AppState>,
     Json(payload): Json<LoginRequest>,
 ) -> impl IntoResponse {
+    if !local_auth_enabled() {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({ "error": "El login local esta desactivado; usa Keycloak" })),
+        );
+    }
+
     let row = sqlx::query("SELECT usuario, contrasenya, rol FROM usuarios WHERE usuario = $1")
         .bind(&payload.usuario)
         .fetch_optional(&state.db)
@@ -241,6 +267,48 @@ async fn cliente_by_cif(
     }
 }
 
+async fn delete_cliente(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(cif): Path<String>,
+) -> StatusCode {
+    delete_client_record(&state, &headers, ClientKind::Cliente, &cif).await
+}
+
+async fn delete_posible_cliente(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(cif): Path<String>,
+) -> StatusCode {
+    delete_client_record(&state, &headers, ClientKind::PosibleCliente, &cif).await
+}
+
+async fn delete_client_record(
+    state: &AppState,
+    headers: &HeaderMap,
+    kind: ClientKind,
+    cif: &str,
+) -> StatusCode {
+    if require_auth(state, headers).await.is_err() {
+        return StatusCode::UNAUTHORIZED;
+    }
+
+    let table = match kind {
+        ClientKind::Cliente => "clientes",
+        ClientKind::PosibleCliente => "posibles_clientes",
+    };
+    let result = sqlx::query(&format!("DELETE FROM {table} WHERE cif = $1"))
+        .bind(cif)
+        .execute(&state.db)
+        .await;
+
+    match result {
+        Ok(result) if result.rows_affected() > 0 => StatusCode::NO_CONTENT,
+        Ok(_) => StatusCode::NOT_FOUND,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
+    }
+}
+
 async fn posibles_clientes(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -374,12 +442,60 @@ async fn create_api(
     };
 
     let created_id: String = row.get("id");
+    if matches!(kind, ApiKind::Especifica) {
+        if let Err(error) = set_default_specific_api_status(&state.db, &created_id).await {
+            return database_error_response(error, "API creada, pero no se pudo asignar estado");
+        }
+    }
+
     match fetch_api_by_id(&state.db, kind, &created_id).await {
         Ok(Some(api)) => (StatusCode::CREATED, Json(serde_json::json!(api))),
         _ => error_response(
             StatusCode::INTERNAL_SERVER_ERROR,
             "API creada, pero no se pudo recuperar",
         ),
+    }
+}
+
+async fn delete_api_plantilla(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> StatusCode {
+    delete_api_record(&state, &headers, ApiKind::Plantilla, &id).await
+}
+
+async fn delete_api_especifica(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> StatusCode {
+    delete_api_record(&state, &headers, ApiKind::Especifica, &id).await
+}
+
+async fn delete_api_record(
+    state: &AppState,
+    headers: &HeaderMap,
+    kind: ApiKind,
+    id: &str,
+) -> StatusCode {
+    if require_auth(state, headers).await.is_err() {
+        return StatusCode::UNAUTHORIZED;
+    }
+
+    let table = match kind {
+        ApiKind::Plantilla => "api_plantilla",
+        ApiKind::Especifica => "api_especifica",
+    };
+    let result = sqlx::query(&format!("DELETE FROM {table} WHERE id = $1"))
+        .bind(id)
+        .execute(&state.db)
+        .await;
+
+    match result {
+        Ok(result) if result.rows_affected() > 0 => StatusCode::NO_CONTENT,
+        Ok(_) => StatusCode::NOT_FOUND,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
 
@@ -545,7 +661,7 @@ async fn github_repository_files(
         );
     };
 
-    let Ok(token) = std::env::var("GITHUB_TOKEN") else {
+    let Some(token) = github_token() else {
         return error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "Falta configurar GITHUB_TOKEN para leer repositorios privados",
@@ -579,7 +695,7 @@ async fn github_file_content(
         return error_response(StatusCode::BAD_REQUEST, "Ruta de archivo no valida");
     }
 
-    let Ok(token) = std::env::var("GITHUB_TOKEN") else {
+    let Some(token) = github_token() else {
         return error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "Falta configurar GITHUB_TOKEN para leer repositorios privados",
@@ -588,6 +704,35 @@ async fn github_file_content(
 
     match fetch_github_file_content(&repo, path, &token).await {
         Ok(content) => (StatusCode::OK, Json(serde_json::json!(content))),
+        Err(error) => error_response(StatusCode::BAD_GATEWAY, &error),
+    }
+}
+
+async fn github_last_commit(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<GitHubFilesRequest>,
+) -> impl IntoResponse {
+    if require_auth(&state, &headers).await.is_err() {
+        return error_response(StatusCode::UNAUTHORIZED, "no autorizado");
+    }
+
+    let Some(repo) = parse_github_repo_url(&payload.url) else {
+        return error_response(
+            StatusCode::BAD_REQUEST,
+            "La URL debe ser un repositorio de GitHub valido",
+        );
+    };
+
+    let Some(token) = github_token() else {
+        return error_response(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Falta configurar GITHUB_TOKEN para leer repositorios privados",
+        );
+    };
+
+    match fetch_github_last_commit(&repo, &token).await {
+        Ok(commit) => (StatusCode::OK, Json(serde_json::json!(commit))),
         Err(error) => error_response(StatusCode::BAD_GATEWAY, &error),
     }
 }
@@ -614,6 +759,120 @@ async fn tags(
             })
             .collect(),
     ))
+}
+
+pub const STATUS_TAG_TYPE: &str = "estado_proyecto";
+const STATUS_TAGS: [(&str, &str); 3] = [
+    ("Sin iniciar", "#52493a"),
+    ("En curso", "#de733e"),
+    ("Finalizado", "#7c8569"),
+];
+
+pub async fn ensure_status_tags(pool: &PgPool) -> Result<(), sqlx::Error> {
+    for (nombre, color) in STATUS_TAGS {
+        sqlx::query(
+            r#"
+            INSERT INTO tags (nombre, tipo, color)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (nombre) DO UPDATE SET
+                tipo = EXCLUDED.tipo,
+                color = EXCLUDED.color,
+                updated_at = now()
+            "#,
+        )
+        .bind(nombre)
+        .bind(STATUS_TAG_TYPE)
+        .bind(color)
+        .execute(pool)
+        .await?;
+    }
+
+    ensure_default_specific_api_status(pool).await
+}
+
+async fn ensure_default_specific_api_status(pool: &PgPool) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        INSERT INTO apis_especificas_tags (id_api_especifica, id_tag)
+        SELECT ae.id, status_tag.id
+        FROM api_especifica ae
+        CROSS JOIN (
+            SELECT id
+            FROM tags
+            WHERE tipo = $1 AND nombre = 'En curso'
+            LIMIT 1
+        ) status_tag
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM apis_especificas_tags aet
+            JOIN tags t ON t.id = aet.id_tag
+            WHERE aet.id_api_especifica = ae.id
+              AND t.tipo = $1
+        )
+        ON CONFLICT DO NOTHING
+        "#,
+    )
+    .bind(STATUS_TAG_TYPE)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+async fn set_default_specific_api_status(pool: &PgPool, api_id: &str) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        INSERT INTO apis_especificas_tags (id_api_especifica, id_tag)
+        SELECT $1, id
+        FROM tags
+        WHERE tipo = $2 AND nombre = 'En curso'
+        ON CONFLICT DO NOTHING
+        "#,
+    )
+    .bind(api_id)
+    .bind(STATUS_TAG_TYPE)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+async fn clear_status_tags(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: &str,
+) -> Result<(), StatusCode> {
+    let (table, entity_column) = match entity_type {
+        "api_especifica" => ("apis_especificas_tags", "id_api_especifica"),
+        "api_plantilla" => ("apis_plantilla_tags", "id_api_plantilla"),
+        _ => return Ok(()),
+    };
+
+    let sql = format!(
+        "DELETE FROM {table}
+         USING tags
+         WHERE {table}.id_tag = tags.id
+           AND {table}.{entity_column} = $1
+           AND tags.tipo = $2"
+    );
+
+    sqlx::query(&sql)
+        .bind(entity_id)
+        .bind(STATUS_TAG_TYPE)
+        .execute(pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(())
+}
+
+async fn is_status_tag(pool: &PgPool, tag_id: i64) -> Result<bool, StatusCode> {
+    sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM tags WHERE id = $1 AND tipo = $2)")
+        .bind(tag_id)
+        .bind(STATUS_TAG_TYPE)
+        .fetch_one(pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
 async fn add_tag(
@@ -648,6 +907,7 @@ enum ApiKind {
     Especifica,
 }
 
+#[derive(Clone, Copy)]
 enum TagAction {
     Add,
     Remove,
@@ -677,6 +937,25 @@ struct GitHubContentResponse {
     content: String,
     encoding: String,
     size: i64,
+}
+
+#[derive(serde::Deserialize)]
+struct GitHubCommitListItem {
+    sha: String,
+    html_url: String,
+    commit: GitHubCommitDetail,
+}
+
+#[derive(serde::Deserialize)]
+struct GitHubCommitDetail {
+    message: String,
+    author: GitHubCommitAuthor,
+}
+
+#[derive(serde::Deserialize)]
+struct GitHubCommitAuthor {
+    name: String,
+    date: String,
 }
 
 #[derive(serde::Deserialize)]
@@ -806,7 +1085,11 @@ async fn fetch_github_files(
                 "https://github.com/{}/{}/{}/{}/{}",
                 repo.owner,
                 repo.repo,
-                if item.item_type == "tree" { "tree" } else { "blob" },
+                if item.item_type == "tree" {
+                    "tree"
+                } else {
+                    "blob"
+                },
                 tree_ref,
                 item.path
             ),
@@ -881,7 +1164,12 @@ async fn fetch_github_file_content(
     let is_image = media_type.starts_with("image/");
     let is_text = media_type.starts_with("text/")
         || matches!(
-            file.path.rsplit('.').next().unwrap_or("").to_ascii_lowercase().as_str(),
+            file.path
+                .rsplit('.')
+                .next()
+                .unwrap_or("")
+                .to_ascii_lowercase()
+                .as_str(),
             "env"
                 | "gitignore"
                 | "dockerignore"
@@ -904,8 +1192,9 @@ async fn fetch_github_file_content(
         (raw_content, "base64".to_string(), true)
     } else if is_text {
         (
-            String::from_utf8(bytes)
-                .map_err(|_| "Este archivo no es texto y no puede visualizarse en el CRM".to_string())?,
+            String::from_utf8(bytes).map_err(|_| {
+                "Este archivo no es texto y no puede visualizarse en el CRM".to_string()
+            })?,
             "utf-8".to_string(),
             false,
         )
@@ -959,6 +1248,63 @@ async fn fetch_github_default_branch(
         .map_err(|error| format!("No se pudo interpretar la respuesta de GitHub: {error}"))
 }
 
+async fn fetch_github_last_commit(
+    repo: &GitHubRepoRef,
+    token: &str,
+) -> Result<GitHubLastCommit, String> {
+    let client = reqwest::Client::new();
+    let branch = match &repo.branch {
+        Some(branch) => branch.clone(),
+        None => fetch_github_default_branch(&client, repo, token).await?,
+    };
+
+    let api_url = format!(
+        "https://api.github.com/repos/{}/{}/commits?sha={}&per_page=1",
+        repo.owner,
+        repo.repo,
+        percent_encode(&branch)
+    );
+    let response = client
+        .get(api_url)
+        .header("Accept", "application/vnd.github+json")
+        .header("Authorization", format!("Bearer {token}"))
+        .header("User-Agent", "argonesa-crm")
+        .send()
+        .await
+        .map_err(|error| format!("No se pudo conectar con GitHub: {error}"))?;
+
+    if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+        return Err("GitHub ha rechazado el token configurado".to_string());
+    }
+    if response.status() == reqwest::StatusCode::FORBIDDEN {
+        return Err("El token no tiene permisos para leer este repositorio".to_string());
+    }
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+        return Err("Repositorio no encontrado en GitHub".to_string());
+    }
+    if !response.status().is_success() {
+        return Err(format!("GitHub ha devuelto estado {}", response.status()));
+    }
+
+    let commits = response
+        .json::<Vec<GitHubCommitListItem>>()
+        .await
+        .map_err(|error| format!("No se pudo interpretar la respuesta de GitHub: {error}"))?;
+
+    let commit = commits
+        .into_iter()
+        .next()
+        .ok_or_else(|| "Este repositorio todavia no tiene commits".to_string())?;
+
+    Ok(GitHubLastCommit {
+        sha: commit.sha,
+        message: commit.commit.message,
+        author: commit.commit.author.name,
+        date: commit.commit.author.date,
+        html_url: commit.html_url,
+    })
+}
+
 fn percent_encode_path(path: &str) -> String {
     path.split('/')
         .map(percent_encode)
@@ -979,7 +1325,13 @@ fn percent_encode(value: &str) -> String {
 }
 
 fn media_type_for_path(path: &str) -> &'static str {
-    match path.rsplit('.').next().unwrap_or("").to_ascii_lowercase().as_str() {
+    match path
+        .rsplit('.')
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase()
+        .as_str()
+    {
         "md" => "text/markdown",
         "txt" | "log" | "env" | "gitignore" | "dockerignore" => "text/plain",
         "html" | "htm" => "text/html",
@@ -1021,6 +1373,13 @@ fn error_response(status: StatusCode, message: &str) -> (StatusCode, Json<serde_
     (status, Json(serde_json::json!({ "error": message })))
 }
 
+fn github_token() -> Option<String> {
+    std::env::var("GITHUB_TOKEN")
+        .ok()
+        .map(|token| token.trim().to_string())
+        .filter(|token| !token.is_empty())
+}
+
 fn database_error_response(
     error: sqlx::Error,
     fallback: &str,
@@ -1058,6 +1417,10 @@ async fn mutate_tag(
         "api_plantilla" => ("apis_plantilla_tags", "id_api_plantilla"),
         _ => return Err(StatusCode::BAD_REQUEST),
     };
+
+    if matches!(action, TagAction::Add) && is_status_tag(pool, payload.tag_id).await? {
+        clear_status_tags(pool, &payload.entity_type, &payload.entity_id).await?;
+    }
 
     let sql = match action {
         TagAction::Add => format!(

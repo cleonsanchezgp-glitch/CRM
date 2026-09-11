@@ -1,0 +1,19 @@
+<div class="modal-backdrop" role="presentation" data-close-new-client>
+  <section class="crm-modal" role="dialog" aria-modal="true" aria-labelledby="new-client-title" data-modal-panel>
+    <div class="crm-modal-header">
+      <div>
+        <p class="modal-kicker">Nuevo registro</p>
+        <h2 id="new-client-title">Crear cliente</h2>
+      </div>
+      <button class="icon-button" type="button" title="Cerrar" data-close-new-client>{{{closeIcon}}}</button>
+    </div>
+    <form id="new-client-form" class="crm-form">
+      {{{formFields}}}
+      {{#if error}}<p class="form-error">{{error}}</p>{{/if}}
+      <div class="crm-modal-actions">
+        <button type="button" class="secondary-button" data-close-new-client>Cancelar</button>
+        <button type="submit" class="primary-button">{{{plusIcon}}} Crear cliente</button>
+      </div>
+    </form>
+  </section>
+</div>

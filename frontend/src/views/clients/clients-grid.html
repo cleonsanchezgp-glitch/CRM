@@ -1,0 +1,12 @@
+<section>
+  <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h2 class="text-xl font-bold text-[#d8d0bd]">{{heading}}</h2>
+      <p class="text-sm text-[rgba(216,208,189,0.68)]">{{summary}}</p>
+    </div>
+    <button class="flex items-center gap-2 rounded-lg bg-[#de733e] px-3 py-2 font-bold text-white transition hover:bg-[#c85f2d] focus:outline-none focus:ring-2 focus:ring-[#de733e]/60" data-open-create="{{createType}}">{{{plusIcon}}} Nuevo</button>
+  </div>
+  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    {{{cardsHtml}}}
+  </div>
+</section>

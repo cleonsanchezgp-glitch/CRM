@@ -1,0 +1,64 @@
+<section class="client-profile">
+  <button class="repo-back" data-client-back>{{{backIcon}}} Volver a clientes</button>
+  <div class="client-profile-shell">
+    <aside class="client-status-panel">
+      <div class="client-avatar">{{avatar}}</div>
+      <h2>{{nombre_empresa}}</h2>
+      <p>{{estado}}</p>
+      <div class="client-contact-list">
+        <span>{{{phoneIcon}}}{{telefono}}</span>
+        <span>{{{mapIcon}}}{{direccion}}</span>
+      </div>
+      {{{tagManagerHtml}}}
+      <button class="danger-button w-full" type="button" data-delete-client="{{cif}}" data-client-kind="{{clientKind}}">
+        {{{deleteIcon}}}
+        {{deleteLabel}}
+      </button>
+    </aside>
+    <main class="client-profile-main">
+      <section class="client-section">
+        <div class="client-section-title">
+          {{{buildingIcon}}}
+          <h3>Informacion de empresa</h3>
+        </div>
+        <div class="client-info-grid">
+          {{{infoItemsHtml}}}
+        </div>
+      </section>
+      <section class="client-section">
+        <div class="client-section-title">
+          {{{messageIcon}}}
+          <h3>Necesidades</h3>
+        </div>
+        <p class="client-need">{{necesidades}}</p>
+      </section>
+      <section class="client-section">
+        <div class="client-section-title">
+          {{{boxesIcon}}}
+          <h3>{{apisHeading}}</h3>
+        </div>
+        <div class="client-mini-grid">
+          {{{miniApisHtml}}}
+        </div>
+      </section>
+      <section class="client-section">
+        <div class="client-section-title">
+          {{{fileArchiveIcon}}}
+          <h3>Archivos adjuntos</h3>
+        </div>
+        <div class="client-file-strip">
+          {{{filesHtml}}}
+        </div>
+      </section>
+      <section class="client-section">
+        <div class="client-section-title">
+          {{{euroIcon}}}
+          <h3>Facturas y contratos</h3>
+        </div>
+        <div class="client-ledger">
+          {{{ledgerHtml}}}
+        </div>
+      </section>
+    </main>
+  </div>
+</section>

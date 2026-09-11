@@ -1,0 +1,79 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    environment:
+      BACKEND_HOST: 0.0.0.0
+      BACKEND_PORT: 8080
+      DATABASE_URL: postgres://postgres:1234@database:5432/CRM
+      CRM_AES_KEY: ${CRM_AES_KEY:-crm-dev-aes-key-change-me}
+      AUTH_MODE: ${AUTH_MODE:-keycloak}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://127.0.0.1:8081/realms/crm}
+      KEYCLOAK_ALLOWED_ISSUERS: ${KEYCLOAK_ALLOWED_ISSUERS:-http://keycloak:8080/realms/crm,http://localhost:8081/realms/crm}
+      KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL:-http://keycloak:8080/realms/crm/protocol/openid-connect/certs}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-crm-frontend}
+      KEYCLOAK_REQUIRED_ROLE: ${KEYCLOAK_REQUIRED_ROLE:-crm_user}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      RUST_LOG: ${RUST_LOG:-crm_backend=debug,tower_http=debug}
+    ports:
+      - "8080:8080"
+    depends_on:
+      database:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: /api
+        VITE_AUTH_MODE: ${VITE_AUTH_MODE:-keycloak}
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-http://127.0.0.1:8081}
+        VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-crm}
+        VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-crm-frontend}
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - crm_postgres_data:/var/lib/postgresql/data
+      - type: bind
+        source: ./database/schema.sql
+        target: /docker-entrypoint-initdb.d/01-schema.sql
+        read_only: true
+      - type: bind
+        source: ./database/seed.sql
+        target: /docker-entrypoint-initdb.d/02-seed.sql
+        read_only: true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d CRM"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  crm_postgres_data:
